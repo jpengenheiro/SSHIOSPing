@@ -73,6 +73,7 @@ sub probevars {
         ping_timeout => { 
             _doc => "ping command timeout in seconds defaults to 1 second.",
             _example => '20',
+            _default => 1,
             _sub => sub { 
                 my $val = shift;
                 return "ERROR: Ping command timeout must be positive integer." unless $val =~ /^[1-9][0-9]*$/;
@@ -83,6 +84,7 @@ sub probevars {
         debug_level => { 
             _doc => "syslog logging level [0-7], defaults to LOG_ERR (3).",
             _example => '3',
+            _default => 3,
             _sub => sub { 
                 my $val = shift;
                 return "ERROR: debug level must be between 0 and 7 according to syslog standards." unless ( $val =~ /^[0-7]$/ );
@@ -144,6 +146,7 @@ sub targetvars {
         repeats => { 
             _doc => "how many pings the probe should send. Defaults to 20.",
             _example => '15',
+            _default => 20,
             _sub => sub { 
                 my $val = shift;
                 return "ERROR: Number of pings must be positive integer" unless $val =~ /[1-9][0-9]*/;
@@ -154,6 +157,7 @@ sub targetvars {
         packet_size => { 
             _doc => "ICMP packet size. Defaults to 100.",
             _example => '200',
+            _default => 100,
             _sub => sub { 
                 my $val = shift;
                 return "ERROR: Packet size must be positive integer" unless $val =~ /[1-9][0-9]*/;
@@ -195,17 +199,17 @@ sub pingone ($){
 # Configuration obtained from smokeping config file
 # probe variables
     #my $binary        = $self->{properties}{binary};
-    my $debug_level   = $self->{properties}{debug_level} // 3;
-    my $ping_timeout  = $self->{properties}{ping_timeout} // 1;
-    my $packet_size   = $target->{properties}{packet_size} // 100;
+    my $debug_level   = $self->{properties}{debug_level} ;
+    my $ping_timeout  = $self->{properties}{ping_timeout} ;
+    my $packet_size   = $target->{properties}{packet_size} ;
 
 # target variables
     my $enable_secret = $target->{vars}{enable_secret};
     my $user          = $target->{vars}{user};
     my $password      = $target->{vars}{password};
     my $ios_host      = $target->{vars}{ios_host};
-    my $repeats       = $target->{vars}{repeats} // 20;
-    my $source        = $target->{vars}{source} // '';
+    my $repeats       = $target->{vars}{repeats} ;
+    my $source        = $target->{vars}{source} ;
     my $host          = $target->{vars}{host};
 
 # syslog functions receive macros
