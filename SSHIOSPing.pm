@@ -165,7 +165,7 @@ sub targetvars {
             },
         },
 
-        source => { 
+        source => {
             _doc => "Ping source interface. IP address or interface description.",
             _example => '10.10.10.10',
             _sub => sub { 
@@ -174,6 +174,18 @@ sub targetvars {
                 return undef;
             },
         },
+
+        vrf => {
+            _doc => "Ping VRF, defaults to empty string if not specified.",
+            _example => 'myVRF',
+            _default => '',
+            _sub => sub { 
+                my $val = shift;
+                #return "ERROR: ssh 'binary' does not point to an executable" unless -f $val and -x _;
+                return undef;
+            },
+        },
+
     });
 
 };
@@ -204,12 +216,13 @@ sub pingone ($){
     my $packet_size   = $target->{properties}{packet_size} ;
 
 # target variables
-    my $enable_secret = $target->{vars}{enable_secret};
-    my $user          = $target->{vars}{user};
-    my $password      = $target->{vars}{password};
+    my $enable_secret = $target->{vars}{enable_secret} ;
+    my $user          = $target->{vars}{user} ;
+    my $password      = $target->{vars}{password} ;
     my $ios_host      = $target->{vars}{ios_host};
     my $repeats       = $target->{vars}{repeats} ;
     my $source        = $target->{vars}{source} ;
+    my $vrf           = $target->{vars}{vrf} ;
     my $host          = $target->{vars}{host};
 
 # syslog functions receive macros
@@ -254,6 +267,7 @@ sub pingone ($){
         "timeout" => $ping_timeout,
         "source" => $source,
         "repeat" => "1",
+        "vrf" => $vrf,
         "size" => $packet_size
     );
 
@@ -320,20 +334,34 @@ sub _buildPingCommand {
 
     my $_host = shift ;
     my %_pingOptions = @_ ;
+    
+    my @pingCommand = () ;
 
-    my @pingCommand = ( 'ping', $_host ) ;
-    while (my ( $param, $value ) = each %_pingOptions ) {
+    #syslog( LOG_INFO, "vrf: $_pingOptions{vrf}") ;
+
+    if ( $_pingOptions{vrf} eq '' ) {
+        @pingCommand = ( 'ping', $_host ) ;
+    } else {
+        @pingCommand = ( 'ping', 'vrf', $_pingOptions{vrf}, $_host );
+    };
+
+    delete $_pingOptions{vrf};
+
+    while ( my ( $param, $value ) = each %_pingOptions ) {
         #if ( ! $param ) {
         #    print "PARAM NOT THERE\n";
         #};
         #print "PARAM : $param\n";
         if ( $value ) {
+            syslog( LOG_INFO, "$param : $value") ;
             push @pingCommand, $param, $value;
         }
     }
+
     my $result = join(' ', @pingCommand );
     syslog( LOG_INFO, "ping Command: $result") ;
     return join(' ', @pingCommand );
+
 };
 
 sub _parsePingCommand {
