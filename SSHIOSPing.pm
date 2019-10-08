@@ -176,7 +176,7 @@ sub targetvars {
         },
 
         vrf => {
-            _doc => "Ping VRF, defaults to empty string if not specified.",
+            _doc => "Ping host using specific VRF.",
             _example => 'myVRF',
             _default => '',
             _sub => sub { 
@@ -210,7 +210,6 @@ sub pingone ($){
 
 # Configuration obtained from smokeping config file
 # probe variables
-    #my $binary        = $self->{properties}{binary};
     my $debug_level   = $self->{properties}{debug_level} ;
     my $ping_timeout  = $self->{properties}{ping_timeout} ;
     my $packet_size   = $target->{properties}{packet_size} ;
@@ -242,33 +241,13 @@ sub pingone ($){
     openlog(  "SSHIOSPing", "ndelay", "user" );
     syslog( LOG_INFO, "Starting logging to syslog with priority: " . $maskHash{ $debug_level } );
 
-
-    # my $binary = $self->{properties}{binary};
-    # my $weight = $target->{vars}{weight}
-    # my $count = $self->pings($target); # the number of pings for this targets
-
-    # ping one target
-
-    # execute a command and parse its output
-    # you should return a sorted array of the measured latency times
-    # it could go something like this:
-
-    my @times;
-
-    #for (1..$count) {
-    #        open(P, "$cmd 2>&1 |") or croak("fork: $!");
-    #        while (<P>) {
-    #                /time: (\d+\.\d+)/ and push @times, $1;
-    #        }
-    #        close P;
-    #}
-
+# specify all the supported options to create a valid ping IOS command
     my %pingOptions = (
         "timeout" => $ping_timeout,
-        "source" => $source,
-        "repeat" => "1",
-        "vrf" => $vrf,
-        "size" => $packet_size
+        "source"  => $source,
+        "repeat"  => "1",
+        "vrf"     => $vrf,
+        "size"    => $packet_size
     );
 
     my $pingCommand = _buildPingCommand( $host, %pingOptions );
@@ -277,9 +256,11 @@ sub pingone ($){
 
     syslog( LOG_INFO, "Connecting to $ios_host" );
     my $session = Net::SSH2::Cisco->new();
-    # We don't want a failed connection to kill the whole script:
+
+# We don't want a failed connection to kill the whole script:
     $session->errmode( 'return' );
-    # Seems like a reasonable connection timeout
+
+# Seems like a reasonable connection timeout
     $session->timeout( 20 );
     my $host_session = $session->connect( $ios_host ) or syslog( LOG_ERR, "failed to connect to $ios_host" );
 
@@ -296,34 +277,23 @@ sub pingone ($){
 
     syslog( LOG_INFO, "Running command : \"$pingCommand\" on $ios_host $repeats times");
 
-    # run $repeats ping commands, smokeping will perform all statistical computations
+# run $repeats ping commands, smokeping will perform all statistical computations
     for my $count ( 1 .. $repeats ) {
         my @output = $session->cmd( $pingCommand ) or syslog( LOG_ERR, "Could not run ping command on $ios_host" );
 
-        #print @output;
-
+# logging is done on the subroutine
         my $result = _parsePingCommand( $ios_host, @output ) or syslog( LOG_ERR, "Could not validate ping command output from $ios_host") ;
 
-        if ( $result ) {
-
-            #print "Got $result for ping number $count\n";
-            push @pingValues, $result if $result;
-
-        } else {
-            #print "Correu mal\n";
-            next;
-        }
+        push @pingValues, $result if $result or next;
 
         #print Dumper( \%result );
 
     };
 
-    syslog( LOG_INFO, "From $ios_host I got: " . scalar @pingValues . " out of $repeats\n") ;
+    syslog( LOG_INFO, "From $ios_host I got: " . scalar @pingValues . " out of $repeats to $host\n") ;
 
     syslog( LOG_INFO, "Closing connection to $ios_host");
     $session->close;
-
-    #return @times;
 
     return "@pingValues";
 }
@@ -337,7 +307,7 @@ sub _buildPingCommand {
     
     my @pingCommand = () ;
 
-    #syslog( LOG_INFO, "vrf: $_pingOptions{vrf}") ;
+    #syslog( LOG_INFO, "vrf : $_pingOptions{vrf}") ;
 
     if ( $_pingOptions{vrf} eq '' ) {
         @pingCommand = ( 'ping', $_host ) ;
@@ -348,10 +318,6 @@ sub _buildPingCommand {
     delete $_pingOptions{vrf};
 
     while ( my ( $param, $value ) = each %_pingOptions ) {
-        #if ( ! $param ) {
-        #    print "PARAM NOT THERE\n";
-        #};
-        #print "PARAM : $param\n";
         if ( $value ) {
             syslog( LOG_INFO, "$param : $value") ;
             push @pingCommand, $param, $value;
@@ -360,7 +326,7 @@ sub _buildPingCommand {
 
     my $result = join(' ', @pingCommand );
     syslog( LOG_INFO, "ping Command: $result") ;
-    return join(' ', @pingCommand );
+    return $result;
 
 };
 
@@ -374,7 +340,7 @@ sub _parsePingCommand {
     my $successTest = '^success rate is 100 percent';
     my $pattern = '/(\d+) (\w+)$';
 
-# se não conseguirmos validar a linha das informações vamos terminar a função
+# we will return nothing if we cannot validate the output
     @infoLine = grep {/^Success/} @pingOutput ;
     if ( ! @infoLine ) {
         syslog( LOG_ERR, "Could not validate ping command output on host $_host") ;
