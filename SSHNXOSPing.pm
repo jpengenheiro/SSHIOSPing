@@ -216,6 +216,7 @@ sub pingone ($){
     $pingOptions{"host"}        = $host;
     $pingOptions{"packet-size"} = $packet_size;
     $pingOptions{"timeout"}     = $ping_timeout;
+    qx( echo built mandatory options | nc 127.0.0.1 12200 );
 
     # specify all the supported options to create a valid ping NXOS command
 
@@ -225,8 +226,10 @@ sub pingone ($){
         if defined $target->{"vars"}{"source_interface"};
     $pingOptions{"vrf"}              = $target->{"vars"}{"vrf"}
         if defined $target->{"vars"}{"vrf"};
+    qx( echo built other options | nc 127.0.0.1 12200 );
 
-    my $nexus = Net::SSH::Perl->new( $host, ( "protocol" => "2" ) );
+    my $nexus = Net::SSH::Perl->new( $nxos_host, ( "protocol" => "2" ) );
+    qx( echo connected to $nxos_host | nc 127.0.0.1 12200 );
 
     $nexus->login( $user, $password ) or $self->do_log( "Failed connecting to $nxos_host" );
     my $pingCommand = _buildPingCommand( %pingOptions );
