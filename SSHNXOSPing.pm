@@ -94,7 +94,7 @@ sub probevars {
 sub targetvars {
     my $class = shift;
     return $class->_makevars($class->SUPER::probevars, {
-        _mandatory => [ 'user', 'password', 'enable_secret', 'ios_host' ],
+        _mandatory => [ 'user', 'password', 'host', 'nxos_host' ],
 
         user => { 
             _doc => "Username to login to NXOS device.",
@@ -139,6 +139,7 @@ sub targetvars {
         packet_size => { 
             _doc => "ICMP packet size. Defaults to 100.",
             _example => '200',
+            _default => 100,
             _sub => sub { 
                 my $val = shift;
                 return "ERROR: Packet size must be positive integer" unless $val =~ /[1-9][0-9]*/;
