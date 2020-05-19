@@ -1,4 +1,4 @@
-package Smokeping::probes::SSHIOSPing;
+package Smokeping::probes::SSHNXOSPing;
 
 =head1 301 Moved Permanently
 
@@ -182,36 +182,49 @@ sub targetvars {
 };
 
 sub pingone ($){
-    my $self = shift;
+    my $self   = shift;
     my $target = shift;
 
     # our probe variables
-    my $ping_timeout  = $self->{properties}{ping_timeout};
-    my $repeats       = $self->{properties}{repeats};
+    my $ping_timeout = $self->{properties}{ping_timeout};
+    # print "ping timeout: $ping_timeout";
+    qx( echo ping timeout: $ping_timeout | nc 127.0.0.1 12200 );
+    my $repeats      = $self->{properties}{repeats};
+    # print "repeats: $repeats";
+    qx( echo repeats: $repeats | nc 127.0.0.1 12200 );
 
     # our target variables
     my $user             = $target->{vars}{user};
+    # print "user: $user";
+    qx( echo user: $user | nc 127.0.0.1 12200 );
     my $password         = $target->{vars}{password};
+    # print "password: $password";
+    qx( echo password: $password | nc 127.0.0.1 12200 );
     my $host             = $target->{vars}{host};
+    # print "host: $host";
+    qx( echo host: $host | nc 127.0.0.1 12200 );
     my $nxos_host        = $target->{vars}{nxos_host};
-
-    my $source           = $target->{vars}{source};
-    my $source_interface = $target->{vars}{source_interface};
-    my $vrf              = $target->{vars}{vrf};
+    # print "nxos_host: $nxos_host";
+    qx( echo nxos_host: $nxos_host | nc 127.0.0.1 12200 );
     my $packet_size      = $target->{vars}{packet_size};
+    # print "packet_size: $packet_size";
+    qx( echo packet_size: $packet_size | nc 127.0.0.1 12200 );
 
     # these are mandatory options
-    my %pingOptions = (
-        "count"            => $repeats;
-        "host"             => $host,
-    );
+    my %pingOptions;
+    $pingOptions{"count"}       = $repeats;
+    $pingOptions{"host"}        = $host;
+    $pingOptions{"packet-size"} = $packet_size;
+    $pingOptions{"timeout"}     = $ping_timeout;
 
     # specify all the supported options to create a valid ping NXOS command
-    $pingOptions{"timeout"}          = $ping_timeout if defined $ping_timeout;
-    $pingOptions{"source"}           = $source if defined $source;
-    $pingOptions{"source-interface"} = $source_interface if defined $source_interface;
-    $pingOptions{"vrf"}              = $vrf if defined $vrf;
-    $pingOptions{"packet_size"}      = $packet_size if defined $packet_size;
+
+    $pingOptions{"source"}           = $target->{"vars"}{"source"}
+        if defined $target->{"vars"}{"source"};
+    $pingOptions{"source-interface"} = $target->{"vars"}{"source_interface"}
+        if defined $target->{"vars"}{"source_interface"};
+    $pingOptions{"vrf"}              = $target->{"vars"}{"vrf"}
+        if defined $target->{"vars"}{"vrf"};
 
     my $nexus = Net::SSH::Perl->new( $host, ( "protocol" => "2" ) );
 
@@ -226,7 +239,7 @@ sub pingone ($){
 
     # $exit: 0 is success
     if ( $exit == 0 ) {
-        $self->do_log( "$nxos_host Successfully ran ping command" );
+        $self->do_log( "$nxos_host Successfully ran ping command against $host" );
         return _parsePingCommand( $stdout );
     } else {
         $self->do_log( "$nxos_host ERROR: $stderr" );
@@ -242,10 +255,8 @@ sub _parsePingCommand {
         # print;
         push @measurements, $1;
     };
-    @measurements map { sprintf "%.10e", $_ } sort { $a <=> $b } @measurements;
+    @measurements = map { sprintf "%.10e", $_ } sort { $a <=> $b } @measurements;
     return @measurements;
-};
-
 };
 
 sub _buildPingCommand {
@@ -253,15 +264,17 @@ sub _buildPingCommand {
     my $host             = $pingOptions{"host"};
     my $vrf              = $pingOptions{"vrf"};
     my $source_interface = $pingOptions{"source-interface"};
-    # my $source           = $target->{"source"} if defined $target->{"source"};
-    # my $packet_size      = $target->{"packet_size"} if defined $target->{"packet_size"};
+    delete $pingOptions{"host"};
+    delete $pingOptions{"vrf"};
+    delete $pingOptions{"source-interface"};
 
-    my $pingCommand      = "ping $host count $repeats";
+    my $pingCommand      = "ping $host";
     $pingCommand = $vrf ? "$pingCommand vrf $vrf" :
                    $source_interface ? "$pingCommand source-interface $source_interface" :
                    $pingCommand;
-    for my $variable ( qw( source packet_size repeats timeout ) ) {
-        $pingCommand .= " " . $target->{$variable} if $target->{$variable};
+    for my $key ( keys %pingOptions ) {
+        $pingCommand .= " " . $key . " " . $pingOptions{$key};
+
     };
     return $pingCommand;
 };
