@@ -189,26 +189,32 @@ sub pingone ($){
     my $ping_timeout = $self->{properties}{ping_timeout};
     # print "ping timeout: $ping_timeout";
     qx( echo ping timeout: $ping_timeout | nc 127.0.0.1 12200 );
+    $self->do_log( "SSHNXOSPing INFO: ping-timeout: $ping_timeout" );
     my $repeats      = $self->{properties}{repeats};
     # print "repeats: $repeats";
     qx( echo repeats: $repeats | nc 127.0.0.1 12200 );
+    $self->do_log( "SSHNXOSPing INFO: repeats: $repeats" );
 
     # our target variables
     my $user             = $target->{vars}{user};
     # print "user: $user";
     qx( echo user: $user | nc 127.0.0.1 12200 );
+    $self->do_log( "SSHNXOSPing INFO: user: $user" );
     my $password         = $target->{vars}{password};
     # print "password: $password";
     qx( echo password: $password | nc 127.0.0.1 12200 );
     my $host             = $target->{vars}{host};
     # print "host: $host";
     qx( echo host: $host | nc 127.0.0.1 12200 );
+    $self->do_log( "SSHNXOSPing INFO: user: $user" );
     my $nxos_host        = $target->{vars}{nxos_host};
     # print "nxos_host: $nxos_host";
     qx( echo nxos_host: $nxos_host | nc 127.0.0.1 12200 );
+    $self->do_log( "SSHNXOSPing INFO: nexus host: $nxos_host" );
     my $packet_size      = $target->{vars}{packet_size};
     # print "packet_size: $packet_size";
     qx( echo packet_size: $packet_size | nc 127.0.0.1 12200 );
+    $self->do_log( "SSHNXOSPing INFO: nexus host: $nxos_host" );
 
     # these are mandatory options
     my %pingOptions;
@@ -217,6 +223,7 @@ sub pingone ($){
     $pingOptions{"packet-size"} = $packet_size;
     $pingOptions{"timeout"}     = $ping_timeout;
     qx( echo built mandatory options | nc 127.0.0.1 12200 );
+    $self->do_log( "SSHNXOSPing INFO: mandatory configs successfully built" );
 
     # specify all the supported options to create a valid ping NXOS command
 
@@ -227,11 +234,15 @@ sub pingone ($){
     $pingOptions{"vrf"}              = $target->{"vars"}{"vrf"}
         if defined $target->{"vars"}{"vrf"};
     qx( echo built other options | nc 127.0.0.1 12200 );
+    $self->do_log( "SSHNXOSPing INFO: optional configs successfully built" );
 
     my $nexus = Net::SSH::Perl->new( $nxos_host, ( "protocol" => "2" ) );
     qx( echo connected to $nxos_host | nc 127.0.0.1 12200 );
+    $self->do_log( "SSHNXOSPing WARN: successfully connected to $nxos_host" );
 
-    $nexus->login( $user, $password ) or $self->do_log( "Failed connecting to $nxos_host" );
+    if ( $nexus->login( $user, $password ) ) {
+        $self->do_log( "Failed connecting to $nxos_host" )
+    };
     my $pingCommand = _buildPingCommand( %pingOptions );
     $self->do_log( "$host will get: `$pingCommand'" );
     my ( $stdout, $stderr, $exit ) = $nexus->cmd( $pingCommand );
