@@ -237,7 +237,6 @@ sub pingone ($){
     $self->do_log( "SSHNXOSPing INFO: attempting connection to $nxos_host" );
     # my $nexus = Net::SSH::Perl->new( $nxos_host, ( "protocol" => "2" ) );
     my $nexus = timeout $connection_timeout => sub {
-	$self->do_log( "SSHNXOSPing INFO: nexus host inside the function: $nxos_host" );
         return Net::SSH::Perl->new( $nxos_host, ( "protocol" => "2" ) );
     };
     if ($@) {
