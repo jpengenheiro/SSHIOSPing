@@ -15,6 +15,7 @@ to generate the POD document.
 =cut
 
 use Net::SSH::Perl;
+use Time::Out qw( timeout );
 use strict;
 use warnings;
 use base qw(Smokeping::probes::basefork); 
@@ -62,6 +63,17 @@ sub probevars {
     my $class = shift;
 
     return $class->_makevars( $class->SUPER::probevars, {
+
+        connection_timeout => { 
+            _doc => "SSH connection timeout in seconds, defaults to 5.",
+            _example => '20',
+            _default => 5,
+            _sub => sub { 
+                my $val = shift;
+                return "ERROR: SSH connection timeout must be positive integer." unless $val =~ /^[1-9][0-9]*$/;
+                return undef;
+            },
+        },
 
         ping_timeout => { 
             _doc => "ping command timeout in seconds, defaults to 1.",
@@ -186,35 +198,23 @@ sub pingone ($){
     my $target = shift;
 
     # our probe variables
+    my $connection_timeout = $self->{properties}{connection_timeout};
+    $self->do_log( "SSHNXOSPing INFO: connection-timeout: $connection_timeout" );
     my $ping_timeout = $self->{properties}{ping_timeout};
-    # print "ping timeout: $ping_timeout";
-    qx( echo ping timeout: $ping_timeout | nc 127.0.0.1 12200 );
     $self->do_log( "SSHNXOSPing INFO: ping-timeout: $ping_timeout" );
     my $repeats      = $self->{properties}{repeats};
-    # print "repeats: $repeats";
-    qx( echo repeats: $repeats | nc 127.0.0.1 12200 );
     $self->do_log( "SSHNXOSPing INFO: repeats: $repeats" );
 
     # our target variables
     my $user             = $target->{vars}{user};
-    # print "user: $user";
-    qx( echo user: $user | nc 127.0.0.1 12200 );
     $self->do_log( "SSHNXOSPing INFO: user: $user" );
     my $password         = $target->{vars}{password};
-    # print "password: $password";
-    qx( echo password: $password | nc 127.0.0.1 12200 );
     my $host             = $target->{vars}{host};
-    # print "host: $host";
-    qx( echo host: $host | nc 127.0.0.1 12200 );
-    $self->do_log( "SSHNXOSPing INFO: user: $user" );
+    $self->do_log( "SSHNXOSPing INFO: host: $host" );
     my $nxos_host        = $target->{vars}{nxos_host};
-    # print "nxos_host: $nxos_host";
-    qx( echo nxos_host: $nxos_host | nc 127.0.0.1 12200 );
     $self->do_log( "SSHNXOSPing INFO: nexus host: $nxos_host" );
     my $packet_size      = $target->{vars}{packet_size};
-    # print "packet_size: $packet_size";
-    qx( echo packet_size: $packet_size | nc 127.0.0.1 12200 );
-    $self->do_log( "SSHNXOSPing INFO: nexus host: $nxos_host" );
+    $self->do_log( "SSHNXOSPing INFO: nexus packet-size: $packet_size" );
 
     # these are mandatory options
     my %pingOptions;
@@ -222,7 +222,6 @@ sub pingone ($){
     $pingOptions{"host"}        = $host;
     $pingOptions{"packet-size"} = $packet_size;
     $pingOptions{"timeout"}     = $ping_timeout;
-    qx( echo built mandatory options | nc 127.0.0.1 12200 );
     $self->do_log( "SSHNXOSPing INFO: mandatory configs successfully built" );
 
     # specify all the supported options to create a valid ping NXOS command
@@ -233,13 +232,20 @@ sub pingone ($){
         if defined $target->{"vars"}{"source_interface"};
     $pingOptions{"vrf"}              = $target->{"vars"}{"vrf"}
         if defined $target->{"vars"}{"vrf"};
-    qx( echo built other options | nc 127.0.0.1 12200 );
     $self->do_log( "SSHNXOSPing INFO: optional configs successfully built" );
 
-    my $nexus = Net::SSH::Perl->new( $nxos_host, ( "protocol" => "2" ) );
-    qx( echo connected to $nxos_host | nc 127.0.0.1 12200 );
-    $self->do_log( "SSHNXOSPing WARN: successfully connected to $nxos_host" );
+    $self->do_log( "SSHNXOSPing INFO: attempting connection to $nxos_host" );
+    # my $nexus = Net::SSH::Perl->new( $nxos_host, ( "protocol" => "2" ) );
+    my $nexus = timeout $connection_timeout => sub {
+        return Net::SSH::Perl->new( Net::SSH::Perl->new( $nxos_host, ( "protocol" => "2" ) ) );
+    };
+    if ($@) {
+        $self->do_log( "SSHNXOSPing WARN: failed to connect to $nxos_host" );
+        return ();
+    }
+    $self->do_log( "SSHNXOSPing INFO: successfully connected to $nxos_host" );
 
+    # returns 0 on success
     if ( $nexus->login( $user, $password ) ) {
         $self->do_log( "Failed connecting to $nxos_host" )
     };
