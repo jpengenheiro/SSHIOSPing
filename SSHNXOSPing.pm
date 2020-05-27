@@ -22,7 +22,7 @@ use base qw(Smokeping::probes::basefork);
 use Carp;
 
 sub pod_hash {
-    return {
+    my %pod = {
         name => <<DOC,
 Smokeping::probes::SSHNXOSPing - A ping latency Probe that runs over SSH for Cisco NXOS devices
 DOC
@@ -37,6 +37,7 @@ DOC
 L<smokeping_extend>
 DOC
     };
+    return \%pod;
 }
 
 sub new($$$) {
@@ -119,7 +120,7 @@ sub targetvars {
         },
 
         password => { 
-            _doc => "Your IOS user's password.",
+            _doc => "Your NXOS user's password.",
             _example => 'supergroovalisticprosifunkstication',
             _sub => sub { 
                 my $val = shift;
@@ -138,15 +139,15 @@ sub targetvars {
             },
         },
 
-        host => { 
-            _doc => "Target device.",
-            _example => 'host-behind-nexus.some.domain',
-            _sub => sub { 
-                my $val = shift;
-                return "ERROR: hostname must be a single word" unless $val =~ /^\S+$/;
-                return undef;
-            },
-        },
+        # host => { 
+        #     _doc => "Target device.",
+        #     _example => 'host-behind-nexus.some.domain',
+        #     _sub => sub { 
+        #         my $val = shift;
+        #         return "ERROR: hostname must be a single word" unless $val =~ /^\S+$/;
+        #         return undef;
+        #     },
+        # },
 
         packet_size => { 
             _doc => "ICMP packet size. Defaults to 100.",
@@ -197,65 +198,88 @@ sub pingone ($){
     my $self   = shift;
     my $target = shift;
 
+    my %pingOptions;
+
     # our probe variables
     my $connection_timeout = $self->{properties}{connection_timeout};
-    $self->do_log( "SSHNXOSPing INFO: connection-timeout: $connection_timeout" );
+    $self->do_log( "INFO: connection_timeout: $connection_timeout" );
+
     my $ping_timeout = $self->{properties}{ping_timeout};
-    $self->do_log( "SSHNXOSPing INFO: ping-timeout: $ping_timeout" );
+    $self->do_log( "INFO: ping_timeout: $ping_timeout" );
+
     my $repeats      = $self->{properties}{repeats};
-    $self->do_log( "SSHNXOSPing INFO: repeats: $repeats" );
+    $self->do_log( "INFO: repeats: $repeats" );
 
     # our target variables
     my $user             = $target->{vars}{user};
-    $self->do_log( "SSHNXOSPing INFO: user: $user" );
+    $self->do_log( "INFO: user: $user" );
+
     my $password         = $target->{vars}{password};
+
     my $host             = $target->{vars}{host};
-    $self->do_log( "SSHNXOSPing INFO: host: $host" );
+    $self->do_log( "INFO: host: $host" );
+
     my $nxos_host        = $target->{vars}{nxos_host};
-    $self->do_log( "SSHNXOSPing INFO: nexus host: $nxos_host" );
+    $self->do_log( "INFO: nexus host: $nxos_host" );
+
     my $packet_size      = $target->{vars}{packet_size};
-    $self->do_log( "SSHNXOSPing INFO: nexus packet-size: $packet_size" );
+    $self->do_log( "INFO: nexus packet-size: $packet_size" );
 
     # these are mandatory options
-    my %pingOptions;
     $pingOptions{"count"}       = $repeats;
     $pingOptions{"host"}        = $host;
     $pingOptions{"packet-size"} = $packet_size;
     $pingOptions{"timeout"}     = $ping_timeout;
-    $self->do_log( "SSHNXOSPing INFO: mandatory configs successfully built" );
+
+    $self->do_log( "INFO: mandatory configs successfully built" );
 
     # specify all the supported options to create a valid ping NXOS command
 
-    $pingOptions{"source"}           = $target->{"vars"}{"source"}
-        if defined $target->{"vars"}{"source"};
-    $pingOptions{"source-interface"} = $target->{"vars"}{"source_interface"}
-        if defined $target->{"vars"}{"source_interface"};
-    $pingOptions{"vrf"}              = $target->{"vars"}{"vrf"}
-        if defined $target->{"vars"}{"vrf"};
-    $self->do_log( "SSHNXOSPing INFO: optional configs successfully built" );
+    if ( $target->{"vars"}{"source"} ) {
+        $pingOptions{"source"} = $target->{"vars"}{"source"};
+        $self->do_log( "INFO: source: $pingOptions{'source'}" );
+    } else {
+        $pingOptions{"source"} = '';
+    };
 
-    $self->do_log( "SSHNXOSPing INFO: attempting connection to $nxos_host" );
-    # my $nexus = Net::SSH::Perl->new( $nxos_host, ( "protocol" => "2" ) );
+    if ( $target->{"vars"}{"source_interface"} ) {
+        $pingOptions{"source-interface"} = $target->{"vars"}{"source_interface"};
+        $self->do_log( "INFO: source_interface: $pingOptions{'source-interface'}" );
+    } else {
+        $pingOptions{"source-interface"} = '';
+    };
+
+    if ( $target->{"vars"}{"vrf"} ) {
+        $pingOptions{"vrf"} = $target->{"vars"}{"vrf"};
+        $self->do_log( "INFO: vrf: $pingOptions{'vrf'}" );
+    } else {
+        $pingOptions{"vrf"} = '';
+    };
+
+    $self->do_log( "INFO: optional configs successfully built" );
+
+    # for my $key ( keys %pingOptions ) {
+    #     $self->do_log( "DUMP: $key : $pingOptions{$key}" );
+    # };
+
+    $self->do_log( "INFO: attempting connection to $nxos_host" );
+
+    # prevents a huge timeout that kills the probe
     my $nexus = timeout $connection_timeout => sub {
         return Net::SSH::Perl->new( $nxos_host, ( "protocol" => "2" ) );
     };
     if ($@) {
-        $self->do_log( "SSHNXOSPing WARN: failed to connect to $nxos_host" );
+        $self->do_log( "WARN: failed to connect to $nxos_host" );
         return ();
     }
-    $self->do_log( "SSHNXOSPing INFO: successfully connected to $nxos_host" );
 
-    # returns 0 on success
-    if ( $nexus->login( $user, $password ) ) {
-        $self->do_log( "Failed connecting to $nxos_host" )
-    };
-    my $pingCommand = _buildPingCommand( %pingOptions );
-    $self->do_log( "$host will get: `$pingCommand'" );
+    $self->do_log( "INFO: successfully connected to $nxos_host" );
+
+    $nexus->login( $user, $password );
+
+    my $pingCommand = _buildPingCommand( ( \%pingOptions, $self ) );
+    $self->do_log( "$nxos_host will get: `$pingCommand'" );
     my ( $stdout, $stderr, $exit ) = $nexus->cmd( $pingCommand );
-
-    # print $stdout, "\n";
-    # print $stderr, "\n";
-    # print $exit, "\n";
 
     # $exit: 0 is success
     if ( $exit == 0 ) {
@@ -280,22 +304,31 @@ sub _parsePingCommand {
 };
 
 sub _buildPingCommand {
-    my %pingOptions      = shift;
-    my $host             = $pingOptions{"host"};
-    my $vrf              = $pingOptions{"vrf"};
-    my $source_interface = $pingOptions{"source-interface"};
-    delete $pingOptions{"host"};
-    delete $pingOptions{"vrf"};
-    delete $pingOptions{"source-interface"};
+    my $pingOptions = shift;
+    my $self      = shift;
+
+    # for my $key ( keys %$pingOptions ) {
+    #     $self->do_log( "DUMP: SUB: $key : $pingOptions->{$key}" );
+    # };
+
+    my $host             = $pingOptions->{"host"};
+    my $vrf              = $pingOptions->{"vrf"};
+    my $source_interface = $pingOptions->{"source-interface"};
+    delete $pingOptions->{"host"};
+    delete $pingOptions->{"vrf"};
+    delete $pingOptions->{"source-interface"};
+    delete $pingOptions->{"source"} unless $pingOptions->{"source"};
 
     my $pingCommand      = "ping $host";
     $pingCommand = $vrf ? "$pingCommand vrf $vrf" :
                    $source_interface ? "$pingCommand source-interface $source_interface" :
                    $pingCommand;
-    for my $key ( keys %pingOptions ) {
-        $pingCommand .= " " . $key . " " . $pingOptions{$key};
+
+    for my $key ( keys %$pingOptions ) {
+        $pingCommand .= " " . $key . " " . $pingOptions->{$key};
 
     };
+
     return $pingCommand;
 };
 
