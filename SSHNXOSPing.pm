@@ -312,20 +312,25 @@ sub _buildPingCommand {
     # };
 
     my $host             = $pingOptions->{"host"};
-    my $vrf              = $pingOptions->{"vrf"};
     my $source_interface = $pingOptions->{"source-interface"};
+    # my $vrf              = $pingOptions->{"vrf"};
     delete $pingOptions->{"host"};
-    delete $pingOptions->{"vrf"};
     delete $pingOptions->{"source-interface"};
+    delete $pingOptions->{"vrf"}    unless $pingOptions->{"vrf"};
     delete $pingOptions->{"source"} unless $pingOptions->{"source"};
 
     my $pingCommand      = "ping $host";
-    $pingCommand = $vrf ? "$pingCommand vrf $vrf" :
-                   $source_interface ? "$pingCommand source-interface $source_interface" :
-                   $pingCommand;
+    # $pingCommand = $vrf ? "$pingCommand vrf $vrf" :
+    #                $source_interface ? "$pingCommand source-interface $source_interface" :
+    #                $pingCommand;
+
+    # "source-interface" allows "vrf" and "source" options,
+    # but "vrf" and "source" do not allow "source-interface"
+    # so "source-interface" must be concatenated first
+    $pingCommand .= " source-interface $source_interface" if $source_interface;
 
     for my $key ( keys %$pingOptions ) {
-        $pingCommand .= " " . $key . " " . $pingOptions->{$key};
+        $pingCommand .= " $key " . $pingOptions->{$key};
 
     };
 
