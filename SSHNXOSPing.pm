@@ -294,10 +294,16 @@ sub pingone ($){
 sub _parsePingCommand {
     my $stdout = shift;
     my @measurements;
+    my $measurement;
     for ( split( /^/, $stdout ) ) {
+        # we only expect measurements in milliseconds,
+        # could not find any information about ther being any other unit
+        # besides milliseconds so...
         /\btime=(\S+)\sms$/ or next;
         # print;
-        push @measurements, $1;
+        # convert to seconds as expected by smokeping
+        $measurements = $1 / 1000 ;
+        push @measurements, $measurement;
     };
     @measurements = map { sprintf "%.10e", $_ } sort { $a <=> $b } @measurements;
     return @measurements;
