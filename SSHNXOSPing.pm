@@ -284,7 +284,7 @@ sub pingone ($){
     # $exit: 0 is success
     if ( $exit == 0 ) {
         $self->do_log( "$nxos_host Successfully ran ping command against $host" );
-        return _parsePingCommand( $stdout, $self, $nxos_host );
+        return _parsePingCommand( $stdout, $self, $nxos_host, $host );
     } else {
         $self->do_log( "$nxos_host ERROR: $stderr" );
     };
@@ -295,6 +295,7 @@ sub _parsePingCommand {
     my $stdout = shift;
     my $self   = shift;
     my $nxos_host   = shift;
+    my $host   = shift;
     my @measurements;
     my $measurement;
     for ( split( /^/, $stdout ) ) {
@@ -305,12 +306,11 @@ sub _parsePingCommand {
         # print;
         # convert to seconds as expected by smokeping
         $measurement = $1 / 1000 ;
-        $self->do_log( "$nxos_host returned measurements @measurements" );
         push @measurements, $measurement;
     };
-    $self->do_log( "$nxos_host returned measurements @measurements" );
+    $self->do_log( "$nxos_host returned measurements @measurements for $host" );
     @measurements = map { sprintf "%.10e", $_ } sort { $a <=> $b } @measurements;
-    $self->do_log( "$nxos_host returned measurements @measurements" );
+    $self->do_log( "$nxos_host returned measurements @measurements for $host" );
     return @measurements;
 };
 
