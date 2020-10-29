@@ -302,7 +302,7 @@ sub _parsePingCommand {
         /\btime=(\S+)\sms$/ or next;
         # print;
         # convert to seconds as expected by smokeping
-        $measurements = $1 / 1000 ;
+        $measurement = $1 / 1000 ;
         push @measurements, $measurement;
     };
     @measurements = map { sprintf "%.10e", $_ } sort { $a <=> $b } @measurements;
