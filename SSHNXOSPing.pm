@@ -305,7 +305,9 @@ sub _parsePingCommand {
         $measurement = $1 / 1000 ;
         push @measurements, $measurement;
     };
+    $self->do_log( "$nxos_host returned measurements: @measurements" );
     @measurements = map { sprintf "%.10e", $_ } sort { $a <=> $b } @measurements;
+    $self->do_log( "$nxos_host treated measurements: @measurements" );
     return @measurements;
 };
 
