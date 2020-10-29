@@ -310,7 +310,7 @@ sub _parsePingCommand {
     };
     $self->do_log( "$nxos_host returned measurements @measurements for $host" );
     @measurements = map { sprintf "%.10e", $_ } sort { $a <=> $b } @measurements;
-    $self->do_log( "$nxos_host returned measurements @measurements for $host" );
+    $self->do_log( "returned measurements @measurements for $host to smokeping after converting milliseconds to seconds" );
     return @measurements;
 };
 
