@@ -284,7 +284,7 @@ sub pingone ($){
     # $exit: 0 is success
     if ( $exit == 0 ) {
         $self->do_log( "$nxos_host Successfully ran ping command against $host" );
-        return _parsePingCommand( $stdout, $self );
+        return _parsePingCommand( $stdout, $self, $host );
     } else {
         $self->do_log( "$nxos_host ERROR: $stderr" );
     };
@@ -294,6 +294,7 @@ sub pingone ($){
 sub _parsePingCommand {
     my $stdout = shift;
     my $self   = shift;
+    my $host   = shift;
     my @measurements;
     my $measurement;
     for ( split( /^/, $stdout ) ) {
